@@ -46,14 +46,15 @@ protected:
 		SetCommState( fd, &dcbSerialParams );
 	}
 
-public: serial_t() noexcept : file_t() {}
+public:
 
 	serial_t( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE )
 	: file_t( path, nullptr ){ 
-		auto self = type::bind( this );
-		set_baud_rate( this->get_fd(), baud );
-		process::poll::add([=](){ this->onOpen.emit(); return -1; });
+		auto self = type::bind(this); set_baud_rate( this->get_fd(), baud );
+		process::add([=](){ this->onOpen.emit(); return -1; });
 	}
+	
+	serial_t() noexcept : file_t() {}
 
 };}
 
