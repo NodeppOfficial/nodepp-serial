@@ -9,7 +9,11 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#pragma once
+#ifndef NODEPP_WINDOWS_SERIAL
+#define NODEPP_WINDOWS_SERIAL
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
 #include <windows.h>
 
 /*────────────────────────────────────────────────────────────────────────────*/
@@ -62,16 +66,17 @@ public:
 
 namespace nodepp { namespace serial {
 
-    template <class... T>
-    promise_t<serial_t,except_t> connect( const T&... args ){ 
-	return promise_t<serial_t,except_t>([=]( function_t<void,serial_t> res, function_t<void,except_t> rej ){
-	try  { serial_t socket( args... ); res( socket ); } 
-	catch( except_t err ) { rej( err ); } }); }
+    template <class... T> 
+	promise_t<serial_t,except_t> connect( const T&... args ){ 
+		return promise_t<serial_t,except_t>([=]( function_t<void,serial_t> res, function_t<void,except_t> rej ){
+		try  { serial_t socket( args... ); res( socket ); } 
+		catch( except_t err ) { rej( err ); } }); 
+	}
 
     template <class... T>
     serial_t await( const T&... args ){ return serial_t( args... ); }
 
-	array_t<string_t> get_devices(){
+	inline array_t<string_t> get_devices(){
 		queue_t<string_t> result; for( auto x=0; x<=255; x++ ){
 			if( fs::exists_file( string::format("COM%d",x) ) )
 			  { result.push( string::format("COM%d",x) ); }
@@ -79,5 +84,9 @@ namespace nodepp { namespace serial {
 	}
 
 }}
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+#endif
 
 /*────────────────────────────────────────────────────────────────────────────*/

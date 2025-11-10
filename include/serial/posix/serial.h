@@ -9,7 +9,11 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#pragma once
+#ifndef NODEPP_POSIX_SERIAL
+#define NODEPP_POSIX_SERIAL
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
 #include <termios.h>
 
 /*────────────────────────────────────────────────────────────────────────────*/
@@ -63,14 +67,15 @@ namespace nodepp { namespace serial {
 
     template <class... T>
     promise_t<serial_t,except_t> connect( const T&... args ){ 
-	return promise_t<serial_t,except_t>([=]( function_t<void,serial_t> res, function_t<void,except_t> rej ){
-	try  { serial_t socket( args... ); res( socket ); } 
-	catch( except_t err ) { rej( err ); } }); }
+		return promise_t<serial_t,except_t>([=]( function_t<void,serial_t> res, function_t<void,except_t> rej ){
+		try  { serial_t socket( args... ); res( socket ); } 
+		catch( except_t err ) { rej( err ); } }); 
+	}
 
     template <class... T>
     serial_t await( const T&... args ){ return serial_t( args... ); }
 
-	array_t<string_t> get_devices(){
+	inline array_t<string_t> get_devices(){
 		queue_t<string_t> result; for( auto x : fs::read_folder("/dev") ){
 			if( strncmp(x.data(),"ttyUSB",6)==0 ||
 				strncmp(x.data(),"ttyACM",6)==0 ||
@@ -82,3 +87,5 @@ namespace nodepp { namespace serial {
 }}
 
 /*────────────────────────────────────────────────────────────────────────────*/
+
+#endif
