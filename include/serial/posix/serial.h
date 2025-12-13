@@ -9,7 +9,11 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#pragma once
+#ifndef NODEPP_POSIX_SERIAL
+#define NODEPP_POSIX_SERIAL
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
 #include <termios.h>
 
 /*────────────────────────────────────────────────────────────────────────────*/
@@ -45,10 +49,15 @@ protected:
         tcflush( fd, TCIFLUSH ); tcsetattr( fd, TCSANOW, &options );
 	}
 
-public: serial_t() noexcept : file_t() {} event_t<serial_t> onConnect;
+public:
 
-	serial_t( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE ): file_t( path, nullptr )
-			{ set_baud_rate( this->get_fd(), baud ); }
+	serial_t( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE )
+	: file_t( path, nullptr ){ 
+		auto self = type::bind(this); set_baud_rate( this->get_fd(), baud );
+		process::add([=](){ this->onOpen.emit(); return -1; });
+	}
+
+	serial_t() noexcept : file_t() {}
 
 };}
 
@@ -56,24 +65,27 @@ public: serial_t() noexcept : file_t() {} event_t<serial_t> onConnect;
 
 namespace nodepp { namespace serial {
 
-    serial_t connect( const serial_t& skt ){
-	skt.onConnect.once([=]( serial_t cli ){ process::task::add([=](){
-		cli.onDrain.once([=](){ cli.free(); skt.free(); });
-		stream::pipe(cli); return -1; }); });
-	skt.onConnect.emit(skt); return skt; }
+    template <class... T>
+    promise_t<serial_t,except_t> connect( const T&... args ){ 
+		return promise_t<serial_t,except_t>([=]( function_t<void,serial_t> res, function_t<void,except_t> rej ){
+		try  { serial_t socket( args... ); res( socket ); } 
+		catch( except_t err ) { rej( err ); } }); 
+	}
 
     template <class... T>
-    serial_t connect( const T&... args ){ return connect( serial_t(args...) ); }
+    serial_t await( const T&... args ){ return serial_t( args... ); }
 
-	array_t<string_t> get_devices(){
-		array_t<string_t> result; for( auto x : fs::read_folder("/dev") ){
+	inline array_t<string_t> get_devices(){
+		queue_t<string_t> result; for( auto x : fs::read_folder("/dev") ){
 			if( strncmp(x.data(),"ttyUSB",6)==0 ||
 				strncmp(x.data(),"ttyACM",6)==0 ||
 				strncmp(x.data(),"ttyS"  ,4)==0
 			){  result.push( "/dev/" + x );  }
-		}	return result;
+		}	return result.data();
 	}
 
 }}
 
 /*────────────────────────────────────────────────────────────────────────────*/
+
+#endif
