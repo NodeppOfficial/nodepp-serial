@@ -9,7 +9,11 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#pragma once
+#ifndef NODEPP_POSIX_SERIAL
+#define NODEPP_POSIX_SERIAL
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
 #include <termios.h>
 
 /*────────────────────────────────────────────────────────────────────────────*/
@@ -45,10 +49,15 @@ protected:
         tcflush( fd, TCIFLUSH ); tcsetattr( fd, TCSANOW, &options );
 	}
 
-public: serial_t() noexcept : file_t() {} event_t<serial_t> onConnect;
+public:
 
-	serial_t( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE ): file_t( path, nullptr )
-			{ set_baud_rate( this->get_fd(), baud ); }
+	serial_t( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE )
+	: file_t( path, nullptr ){ 
+		auto self = type::bind(this); set_baud_rate( this->get_fd(), baud );
+		process::add([=](){ this->onOpen.emit(); return -1; });
+	}
+
+	serial_t() noexcept : file_t() {}
 
 };}
 
@@ -56,24 +65,44 @@ public: serial_t() noexcept : file_t() {} event_t<serial_t> onConnect;
 
 namespace nodepp { namespace serial {
 
-    serial_t connect( const serial_t& skt ){
-	skt.onConnect.once([=]( serial_t cli ){ process::task::add([=](){
-		cli.onDrain.once([=](){ cli.free(); skt.free(); });
-		stream::pipe(cli); return -1; }); });
-	skt.onConnect.emit(skt); return skt; }
+	promise_t<serial_t,except_t> 
+	connect( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE ){ 
+		return promise_t<serial_t,except_t>([=]( function_t<void,serial_t> res, function_t<void,except_t> rej ){
+			if ( !fs::exists_file( path ) ){ rej( except_t( "device not found" ) ); return; }
+			res( serial_t( path, baud, _size ) );
+		});
+	}
 
-    template <class... T>
-    serial_t connect( const T&... args ){ return connect( serial_t(args...) ); }
+	expected_t<serial_t,except_t> 
+	await( const string_t& path, uint baud=0, const ulong& _size=CHUNK_SIZE ){ 
+		return connect( path, baud, _size ).await(); 
+	}
 
-	array_t<string_t> get_devices(){
-		array_t<string_t> result; for( auto x : fs::read_folder("/dev") ){
-			if( strncmp(x.data(),"ttyUSB",6)==0 ||
-				strncmp(x.data(),"ttyACM",6)==0 ||
-				strncmp(x.data(),"ttyS"  ,4)==0
-			){  result.push( "/dev/" + x );  }
-		}	return result;
+    /*─······································································─*/
+
+	inline expected_t<ptr_t<string_t>,except_t> scan(){
+
+		auto raw = fs::read_folder( "/deb" ).await();
+		if( !raw ){ return except_t( "no devices found" ); }
+
+		queue_t<string_t> list; 
+		
+		for( auto x : raw.value() ){
+		if ( strncmp(x.data(),"ttyUSB",6)==0 ||
+			 strncmp(x.data(),"ttyACM",6)==0 ||
+			 strncmp(x.data(),"ttyS"  ,4)==0
+		)  { list.push  ( "/dev/" + x ); } }
+		
+		if( list.empty() ){
+			     return except_t( "no serial devices found" );
+		} else { return list.data(); }
+
 	}
 
 }}
+
+/*────────────────────────────────────────────────────────────────────────────*/
+
+#endif
 
 /*────────────────────────────────────────────────────────────────────────────*/
