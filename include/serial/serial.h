@@ -14,12 +14,14 @@
 
 /*────────────────────────────────────────────────────────────────────────────*/
 
-#if   _KERNEL == NODEPP_KERNEL_WINDOWS
-    #include "fs.h"
-    #include "windows/serial.cpp"
-#elif _KERNEL == NODEPP_KERNEL_POSIX
-    #include "fs.h"
-    #include "posix/serial.cpp"
+#if   _KERNEL_ == NODEPP_KERNEL_WINDOWS
+    #include <nodepp/fs.h>
+    #include <nodepp/promise.h>
+    #include "windows/serial.h"
+#elif _KERNEL_ == NODEPP_KERNEL_POSIX
+    #include <nodepp/fs.h>
+    #include <nodepp/promise.h>
+    #include "posix/serial.h"
 #else
     #error "This OS Does not support serial.h"
 #endif
